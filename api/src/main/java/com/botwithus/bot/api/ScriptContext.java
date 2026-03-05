@@ -1,6 +1,7 @@
 package com.botwithus.bot.api;
 
 import com.botwithus.bot.api.event.EventBus;
+import com.botwithus.bot.api.isc.MessageBus;
 
 /**
  * Context object passed to {@link BotScript#onStart} providing access to
@@ -9,6 +10,7 @@ import com.botwithus.bot.api.event.EventBus;
  * @see BotScript
  * @see GameAPI
  * @see EventBus
+ * @see MessageBus
  */
 public interface ScriptContext {
 
@@ -25,4 +27,11 @@ public interface ScriptContext {
      * @return the {@link EventBus} instance
      */
     EventBus getEventBus();
+
+    /**
+     * Returns the message bus for inter-script communication.
+     *
+     * @return the {@link MessageBus} instance
+     */
+    MessageBus getMessageBus();
 }

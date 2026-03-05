@@ -3,6 +3,7 @@ package com.botwithus.bot.core;
 import com.botwithus.bot.api.BotScript;
 import com.botwithus.bot.core.impl.EventBusImpl;
 import com.botwithus.bot.core.impl.GameAPIImpl;
+import com.botwithus.bot.core.impl.MessageBusImpl;
 import com.botwithus.bot.core.impl.ScriptContextImpl;
 import com.botwithus.bot.core.pipe.PipeClient;
 import com.botwithus.bot.core.rpc.RpcClient;
@@ -21,8 +22,9 @@ public class JBotApplication {
         try (PipeClient pipe = new PipeClient()) {
             RpcClient rpc = new RpcClient(pipe);
             EventBusImpl eventBus = new EventBusImpl();
+            MessageBusImpl messageBus = new MessageBusImpl();
             GameAPIImpl gameAPI = new GameAPIImpl(rpc);
-            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus);
+            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus, messageBus);
 
             // Route pipe events to the event bus
             rpc.setEventHandler(event -> {

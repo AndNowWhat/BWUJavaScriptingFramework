@@ -5,6 +5,7 @@ import com.botwithus.bot.cli.log.LogBuffer;
 import com.botwithus.bot.cli.log.LogCapture;
 import com.botwithus.bot.core.impl.EventBusImpl;
 import com.botwithus.bot.core.impl.GameAPIImpl;
+import com.botwithus.bot.core.impl.MessageBusImpl;
 import com.botwithus.bot.core.impl.ScriptContextImpl;
 import com.botwithus.bot.core.pipe.PipeClient;
 import com.botwithus.bot.core.rpc.RpcClient;
@@ -57,8 +58,9 @@ public class CliContext {
             PipeClient pipe = pipeName != null ? new PipeClient(pipeName) : new PipeClient();
             RpcClient rpc = new RpcClient(pipe);
             EventBusImpl eventBus = new EventBusImpl();
+            MessageBusImpl messageBus = new MessageBusImpl();
             GameAPIImpl gameAPI = new GameAPIImpl(rpc);
-            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus);
+            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus, messageBus);
 
             rpc.setEventHandler(event -> {
                 String eventType = (String) event.get("event");
