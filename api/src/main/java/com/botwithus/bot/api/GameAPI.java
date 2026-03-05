@@ -57,6 +57,20 @@ public interface GameAPI {
      */
     int getClientCount();
 
+    /**
+     * Lists all available event names that can be subscribed to.
+     *
+     * @return a list of event names
+     */
+    List<String> listEvents();
+
+    /**
+     * Returns the calling client's current event subscriptions.
+     *
+     * @return a list of subscribed event names
+     */
+    List<String> getSubscriptions();
+
     // ============================== Actions ==============================
 
     /**
@@ -639,6 +653,29 @@ public interface GameAPI {
      * @return the navigation archive cache file
      */
     CacheFile getNavigationArchive();
+
+    /**
+     * Checks whether auto-login is enabled.
+     *
+     * @return {@code true} if auto-login is enabled
+     */
+    boolean getAutoLogin();
+
+    /**
+     * Enables or disables auto-login.
+     *
+     * @param enabled {@code true} to enable, {@code false} to disable
+     */
+    void setAutoLogin(boolean enabled);
+
+    /**
+     * Captures a screenshot of the game framebuffer as a PNG image.
+     * The capture runs on the OpenGL thread before overlay rendering
+     * and returns a 1280x720 PNG.
+     *
+     * @return the screenshot as a cache file containing PNG data
+     */
+    CacheFile takeScreenshot();
 
     // ============================== Inventory & Items ==============================
 

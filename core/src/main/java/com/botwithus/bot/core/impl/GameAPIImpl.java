@@ -51,6 +51,26 @@ public class GameAPIImpl implements GameAPI {
         return getInt(r, "count");
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<String> listEvents() {
+        Object raw = rpc.callSyncRaw("rpc.list_events", Map.of());
+        if (raw instanceof List<?> list) {
+            return list.stream().map(Object::toString).toList();
+        }
+        return List.of();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<String> getSubscriptions() {
+        Object raw = rpc.callSyncRaw("rpc.get_subscriptions", Map.of());
+        if (raw instanceof List<?> list) {
+            return list.stream().map(Object::toString).toList();
+        }
+        return List.of();
+    }
+
     // ========================== Actions ==========================
 
     @Override
@@ -610,6 +630,25 @@ public class GameAPIImpl implements GameAPI {
     @Override
     public CacheFile getNavigationArchive() {
         Map<String, Object> r = rpc.callSync("get_navigation_archive", Map.of());
+        Object data = r.get("data");
+        byte[] bytes = data instanceof byte[] b ? b : new byte[0];
+        return new CacheFile(bytes, getInt(r, "size"));
+    }
+
+    @Override
+    public boolean getAutoLogin() {
+        Map<String, Object> r = rpc.callSync("get_auto_login", Map.of());
+        return getBool(r, "enabled");
+    }
+
+    @Override
+    public void setAutoLogin(boolean enabled) {
+        rpc.callSync("set_auto_login", Map.of("enabled", enabled));
+    }
+
+    @Override
+    public CacheFile takeScreenshot() {
+        Map<String, Object> r = rpc.callSync("take_screenshot", Map.of());
         Object data = r.get("data");
         byte[] bytes = data instanceof byte[] b ? b : new byte[0];
         return new CacheFile(bytes, getInt(r, "size"));
