@@ -18,9 +18,17 @@ public class ScriptRuntime {
         this.context = context;
     }
 
-    public void startScript(BotScript script) {
+    /**
+     * Registers a script without starting it. Use {@link ScriptRunner#start()} to start later.
+     */
+    public ScriptRunner registerScript(BotScript script) {
         ScriptRunner runner = new ScriptRunner(script, context);
         runners.add(runner);
+        return runner;
+    }
+
+    public void startScript(BotScript script) {
+        ScriptRunner runner = registerScript(script);
         runner.start();
         System.out.println("[Runtime] Started script: " + runner.getScriptName());
     }

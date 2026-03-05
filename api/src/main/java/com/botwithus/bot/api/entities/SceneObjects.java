@@ -88,7 +88,7 @@ public class SceneObjects {
     public static class Query extends EntityQuery<SceneObject, Query> {
 
         Query(GameAPI api) {
-            super(api, "object");
+            super(api, "location");
         }
 
         @Override

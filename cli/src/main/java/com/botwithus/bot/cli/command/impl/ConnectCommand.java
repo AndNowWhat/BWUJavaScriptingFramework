@@ -26,10 +26,11 @@ public class ConnectCommand implements Command {
             switch (sub.toLowerCase()) {
                 case "scan" -> scan(parsed.arg(1), ctx);
                 case "disconnect", "dc" -> {
+                    boolean force = parsed.hasFlag("force");
                     if (parsed.hasFlag("all")) {
-                        ctx.disconnectAll();
+                        ctx.disconnectAll(force);
                     } else {
-                        ctx.disconnect(parsed.arg(1));
+                        ctx.disconnect(parsed.arg(1), force);
                     }
                 }
                 case "reconnect", "rc" -> {

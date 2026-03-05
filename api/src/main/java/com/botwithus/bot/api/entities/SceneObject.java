@@ -3,6 +3,7 @@ package com.botwithus.bot.api.entities;
 import com.botwithus.bot.api.GameAPI;
 import com.botwithus.bot.api.inventory.ActionTypes;
 import com.botwithus.bot.api.model.Entity;
+import com.botwithus.bot.api.model.EntityPosition;
 import com.botwithus.bot.api.model.GameAction;
 import com.botwithus.bot.api.model.LocationType;
 
@@ -172,7 +173,7 @@ public class SceneObject extends EntityContext {
         if (optionIndex < 1 || optionIndex >= ActionTypes.OBJECT_OPTIONS.length) {
             throw new IllegalArgumentException("Object option index out of range: " + optionIndex);
         }
-        api.queueAction(new GameAction(ActionTypes.OBJECT_OPTIONS[optionIndex], 0, raw.handle(), 0));
+        api.queueAction(new GameAction(ActionTypes.OBJECT_OPTIONS[optionIndex], raw.typeId(), raw.tileX(), raw.tileY()));
     }
 
     @Override

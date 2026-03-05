@@ -2,6 +2,7 @@ package com.botwithus.bot.cli;
 
 import com.botwithus.bot.core.pipe.PipeClient;
 import com.botwithus.bot.core.rpc.RpcClient;
+import com.botwithus.bot.core.runtime.ScriptRunner;
 import com.botwithus.bot.core.runtime.ScriptRuntime;
 
 public class Connection {
@@ -23,14 +24,19 @@ public class Connection {
     public RpcClient getRpc() { return rpc; }
     public ScriptRuntime getRuntime() { return runtime; }
 
-    /** Disconnect the pipe without stopping scripts on the game client. */
-    public void close() {
-        try { rpc.close(); } catch (Exception ignored) {}
+    /** Returns true if the underlying pipe is still open. */
+    public boolean isAlive() {
+        return pipe.isOpen();
+    }
+
+    /** Returns true if any scripts are currently running on this connection. */
+    public boolean hasRunningScripts() {
+        return runtime.getRunners().stream().anyMatch(ScriptRunner::isRunning);
     }
 
     /** Stop all scripts AND close the connection. */
-    public void closeAndStopScripts() {
+    public void close() {
         try { runtime.stopAll(); } catch (Exception ignored) {}
-        close();
+        try { rpc.close(); } catch (Exception ignored) {}
     }
 }

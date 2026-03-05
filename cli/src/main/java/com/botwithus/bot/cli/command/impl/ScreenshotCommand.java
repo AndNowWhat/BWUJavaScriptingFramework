@@ -41,6 +41,15 @@ public class ScreenshotCommand implements Command {
         Map<String, Object> response;
         try {
             response = conn.getRpc().callSync("take_screenshot", Map.of());
+        } catch (com.botwithus.bot.core.pipe.PipeException | com.botwithus.bot.core.rpc.RpcException e) {
+            String msg = "Screenshot failed: " + e.getMessage();
+            if (progress != null && progressHandle != null) {
+                progress.completeWithError(progressHandle, msg);
+            } else {
+                ctx.out().println(msg);
+            }
+            ctx.handleConnectionError(conn.getName());
+            return;
         } catch (Exception e) {
             String msg = "Screenshot failed: " + e.getMessage();
             if (progress != null && progressHandle != null) {

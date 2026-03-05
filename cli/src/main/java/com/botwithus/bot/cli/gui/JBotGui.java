@@ -74,6 +74,7 @@ public class JBotGui extends JFrame {
         registry = new CommandRegistry();
         registry.register(new HelpCommand(registry));
         registry.register(new ConnectCommand());
+        registry.register(new PingCommand());
         registry.register(new ScriptsCommand());
         registry.register(new LogsCommand());
         registry.register(new ReloadCommand());
@@ -152,6 +153,12 @@ public class JBotGui extends JFrame {
 
             try {
                 cmd.execute(parsed, ctx);
+            } catch (com.botwithus.bot.core.pipe.PipeException | com.botwithus.bot.core.rpc.RpcException e) {
+                guiOut.println("Connection error: " + e.getMessage());
+                String connName = ctx.getActiveConnectionName();
+                if (connName != null) {
+                    ctx.handleConnectionError(connName);
+                }
             } catch (Exception e) {
                 guiOut.println("Error: " + e.getMessage());
             }

@@ -5,11 +5,12 @@ import com.botwithus.bot.api.BotScript;
 import java.io.IOException;
 import java.lang.module.Configuration;
 import java.lang.module.ModuleFinder;
+import java.lang.module.ModuleReference;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ServiceLoader;
+import java.util.*;
 
 /**
  * Discovers BotScript implementations from JAR files in a scripts directory.
@@ -18,7 +19,8 @@ import java.util.ServiceLoader;
  */
 public final class ScriptLoader {
 
-    private static final String DEFAULT_SCRIPTS_DIR = "scripts";
+    private static final String SCRIPTS_DIR_NAME = "scripts";
+    private static final String SCRIPTS_DIR_PROPERTY = "botwithus.scripts.dir";
 
     private ScriptLoader() {}
 
@@ -26,7 +28,32 @@ public final class ScriptLoader {
      * Loads all BotScript providers from JARs in the default {@code scripts/} directory.
      */
     public static List<BotScript> loadScripts() {
-        return loadScripts(Path.of(DEFAULT_SCRIPTS_DIR));
+        return loadScripts(resolveScriptsDir());
+    }
+
+    /**
+     * Resolves the scripts directory. Checks (in order):
+     * 1. System property {@code botwithus.scripts.dir}
+     * 2. {@code scripts/} relative to the user home {@code .botwithus/} directory
+     * 3. {@code scripts/} relative to the working directory
+     */
+    private static Path resolveScriptsDir() {
+        String override = System.getProperty(SCRIPTS_DIR_PROPERTY);
+        if (override != null) {
+            return Path.of(override);
+        }
+        // Walk up from working directory to find scripts/ (handles submodule working dirs)
+        Path dir = Path.of("").toAbsolutePath();
+        for (int i = 0; i < 3; i++) {
+            Path candidate = dir.resolve(SCRIPTS_DIR_NAME);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            dir = dir.getParent();
+            if (dir == null) break;
+        }
+        // Fallback: create in working directory
+        return Path.of(SCRIPTS_DIR_NAME);
     }
 
     /**
@@ -60,36 +87,50 @@ public final class ScriptLoader {
 
         System.out.println("[ScriptLoader] Found " + jars.size() + " JAR(s) in " + scriptsDir.toAbsolutePath());
 
-        // Build a ModuleLayer from the script JARs
-        ModuleLayer bootLayer = ModuleLayer.boot();
         ModuleFinder finder = ModuleFinder.of(scriptsDir);
-        // Resolve all modules found in the scripts directory
-        List<String> moduleNames = finder.findAll().stream()
-                .map(ref -> ref.descriptor().name())
-                .toList();
+        Set<ModuleReference> moduleReferences = finder.findAll();
 
-        if (moduleNames.isEmpty()) {
-            System.out.println("[ScriptLoader] No valid Java modules found in JARs. "
+        if (moduleReferences.isEmpty()) {
+            System.out.println("[ScriptLoader] No modules found in JARs. "
                     + "Ensure each JAR has a module-info with 'provides BotScript with ...'");
             return List.of();
         }
 
-        System.out.println("[ScriptLoader] Resolved modules: " + moduleNames);
+        List<BotScript> allScripts = new ArrayList<>();
+        ModuleLayer bootLayer = ModuleLayer.boot();
 
-        Configuration cfg = bootLayer.configuration().resolve(
-                finder, ModuleFinder.of(), moduleNames
-        );
+        for (ModuleReference ref : moduleReferences) {
+            String name = ref.descriptor().name();
+            var location = ref.location();
+            if (location.isEmpty()) {
+                System.out.println("[ScriptLoader] Module " + name + " has no location, skipping.");
+                continue;
+            }
 
-        ModuleLayer scriptLayer = bootLayer.defineModulesWithOneLoader(
-                cfg, ClassLoader.getSystemClassLoader()
-        );
+            try {
+                URL jarURL = location.get().toURL();
+                Configuration cfg = bootLayer.configuration().resolve(
+                        finder, ModuleFinder.of(), Collections.singleton(name));
+                ModuleLayer layer = bootLayer.defineModulesWithOneLoader(
+                        cfg, new URLClassLoader(new URL[]{jarURL}));
 
-        // Discover BotScript providers from the script layer
-        List<BotScript> scripts = new ArrayList<>();
-        ServiceLoader<BotScript> loader = ServiceLoader.load(scriptLayer, BotScript.class);
-        for (BotScript script : loader) {
-            scripts.add(script);
+                Optional<Module> module = layer.findModule(name);
+                if (module.isEmpty()) {
+                    System.out.println("[ScriptLoader] Module " + name + " could not be found in layer, skipping.");
+                    continue;
+                }
+
+                ServiceLoader<BotScript> loader = ServiceLoader.load(layer, BotScript.class);
+                for (BotScript script : loader) {
+                    allScripts.add(script);
+                    System.out.println("[ScriptLoader] Loaded: " + script.getClass().getName());
+                }
+            } catch (Exception e) {
+                System.err.println("[ScriptLoader] Failed to load module " + name + ": " + e.getMessage());
+                e.printStackTrace();
+            }
         }
-        return scripts;
+
+        return allScripts;
     }
 }

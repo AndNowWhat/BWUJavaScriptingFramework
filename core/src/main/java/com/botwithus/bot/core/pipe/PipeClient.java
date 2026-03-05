@@ -5,14 +5,17 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
  * Named pipe client connecting to \\.\pipe\BotWithUs.
  * Uses 4-byte LE length-prefix framing.
+ *
+ * <p>All I/O is synchronous. Windows named pipes use non-overlapped handles,
+ * so concurrent read/write on the same handle causes deadlocks. Both
+ * {@link #send} and {@link #readMessage} are synchronized on this instance
+ * to ensure only one I/O operation at a time.</p>
  */
 public class PipeClient implements AutoCloseable {
 
@@ -21,11 +24,7 @@ public class PipeClient implements AutoCloseable {
 
     private final String pipePath;
     private final RandomAccessFile pipe;
-    private final InputStream in;
-    private final OutputStream out;
-    private final Thread readerThread;
-    private volatile boolean running = true;
-    private Consumer<byte[]> messageHandler;
+    private volatile boolean open = true;
 
     public PipeClient() {
         this(DEFAULT_PIPE_NAME);
@@ -35,13 +34,9 @@ public class PipeClient implements AutoCloseable {
         this.pipePath = PIPE_PREFIX + pipeName;
         try {
             this.pipe = new RandomAccessFile(pipePath, "rw");
-            this.in = new FileInputStream(pipe.getFD());
-            this.out = new FileOutputStream(pipe.getFD());
         } catch (IOException e) {
             throw new PipeException("Failed to connect to pipe: " + pipePath, e);
         }
-
-        this.readerThread = Thread.ofVirtual().name("pipe-reader").start(this::readLoop);
     }
 
     public static List<String> scanPipes() {
@@ -64,54 +59,54 @@ public class PipeClient implements AutoCloseable {
         return pipePath;
     }
 
-    public void setMessageHandler(Consumer<byte[]> handler) {
-        this.messageHandler = handler;
+    public boolean isOpen() {
+        return open;
     }
 
+    /**
+     * Sends a length-prefixed message over the pipe.
+     */
     public synchronized void send(byte[] data) {
+        if (!open) throw new PipeException("Pipe is closed");
         try {
             byte[] header = ByteBuffer.allocate(4)
                     .order(ByteOrder.LITTLE_ENDIAN)
                     .putInt(data.length)
                     .array();
-            out.write(header);
-            out.write(data);
-            out.flush();
+            pipe.write(header);
+            pipe.write(data);
         } catch (IOException e) {
             throw new PipeException("Failed to send message", e);
         }
     }
 
-    private void readLoop() {
+    /**
+     * Reads the next length-prefixed message from the pipe.
+     * Blocks until a complete message is available.
+     */
+    public synchronized byte[] readMessage() {
+        if (!open) throw new PipeException("Pipe is closed");
         try {
-            byte[] headerBuf = new byte[4];
-            while (running) {
-                readFully(headerBuf);
-                int length = ByteBuffer.wrap(headerBuf)
-                        .order(ByteOrder.LITTLE_ENDIAN)
-                        .getInt();
-                if (length <= 0 || length > 16 * 1024 * 1024) {
-                    throw new PipeException("Invalid message length: " + length);
-                }
-                byte[] payload = new byte[length];
-                readFully(payload);
-
-                Consumer<byte[]> handler = this.messageHandler;
-                if (handler != null) {
-                    handler.accept(payload);
-                }
+            byte[] header = new byte[4];
+            readFully(header);
+            int length = ByteBuffer.wrap(header)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .getInt();
+            if (length <= 0 || length > 16 * 1024 * 1024) {
+                throw new PipeException("Invalid message length: " + length);
             }
+            byte[] payload = new byte[length];
+            readFully(payload);
+            return payload;
         } catch (IOException e) {
-            if (running) {
-                throw new PipeException("Pipe read error", e);
-            }
+            throw new PipeException("Pipe read error", e);
         }
     }
 
     private void readFully(byte[] buf) throws IOException {
         int off = 0;
         while (off < buf.length) {
-            int n = in.read(buf, off, buf.length - off);
+            int n = pipe.read(buf, off, buf.length - off);
             if (n < 0) throw new IOException("Pipe closed");
             off += n;
         }
@@ -119,10 +114,7 @@ public class PipeClient implements AutoCloseable {
 
     @Override
     public void close() {
-        running = false;
-        // Close the pipe first — this unblocks the reader thread stuck on in.read()
-        // (Thread.interrupt() does NOT unblock blocking I/O on Windows named pipes)
+        open = false;
         try { pipe.close(); } catch (IOException ignored) {}
-        readerThread.interrupt();
     }
 }

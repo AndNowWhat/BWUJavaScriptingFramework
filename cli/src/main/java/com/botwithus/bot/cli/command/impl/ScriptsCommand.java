@@ -2,6 +2,7 @@ package com.botwithus.bot.cli.command.impl;
 
 import com.botwithus.bot.api.ScriptManifest;
 import com.botwithus.bot.cli.CliContext;
+import com.botwithus.bot.cli.Connection;
 import com.botwithus.bot.cli.command.Command;
 import com.botwithus.bot.cli.command.ParsedCommand;
 import com.botwithus.bot.cli.output.AnsiCodes;
@@ -16,17 +17,24 @@ public class ScriptsCommand implements Command {
     @Override public String name() { return "scripts"; }
     @Override public List<String> aliases() { return List.of("s"); }
     @Override public String description() { return "Manage scripts on active connection"; }
-    @Override public String usage() { return "scripts [list|start <name>|stop <name>|restart <name>|info <name>]"; }
+    @Override public String usage() { return "scripts [list|start <name>|stop <name>|restart <name>|info <name>|status]"; }
 
     @Override
     public void execute(ParsedCommand parsed, CliContext ctx) {
+        String sub = parsed.arg(0);
+
+        // 'status' works without an active connection — shows all connections
+        if ("status".equals(sub)) {
+            statusAll(ctx);
+            return;
+        }
+
         ScriptRuntime runtime = ctx.getRuntime();
         if (runtime == null) {
             ctx.out().println("No active connection. Use 'connect' first.");
             return;
         }
 
-        String sub = parsed.arg(0);
         if (sub == null || sub.equals("list")) {
             listScripts(runtime, ctx);
         } else if (sub.equals("start")) {
@@ -38,7 +46,7 @@ public class ScriptsCommand implements Command {
         } else if (sub.equals("info")) {
             infoScript(parsed.arg(1), runtime, ctx);
         } else {
-            ctx.out().println("Unknown subcommand: " + sub + ". Use: list, start, stop, restart, info");
+            ctx.out().println("Unknown subcommand: " + sub + ". Use: list, start, stop, restart, info, status");
         }
     }
 
@@ -128,5 +136,40 @@ public class ScriptsCommand implements Command {
         ctx.out().println("  Status:      " + (runner.isRunning() ? "RUNNING" : "STOPPED"));
         ctx.out().println("  Class:       " + runner.getScript().getClass().getName());
         ctx.out().println("  Connection:  " + ctx.getActiveConnectionName());
+    }
+
+    private void statusAll(CliContext ctx) {
+        if (!ctx.hasConnections()) {
+            ctx.out().println("No connections.");
+            return;
+        }
+        String activeName = ctx.getActiveConnectionName();
+        TableFormatter table = new TableFormatter().headers("Connection", "Script", "Version", "Status");
+        boolean hasScripts = false;
+        for (Connection conn : ctx.getConnections()) {
+            String connLabel = conn.getName();
+            if (connLabel.equals(activeName)) {
+                connLabel += " " + AnsiCodes.colorize("*", AnsiCodes.GREEN);
+            }
+            List<ScriptRunner> runners = conn.getRuntime().getRunners();
+            if (runners.isEmpty()) {
+                table.row(connLabel, "(none)", "", "");
+            } else {
+                for (ScriptRunner runner : runners) {
+                    hasScripts = true;
+                    ScriptManifest m = runner.getManifest();
+                    String version = m != null ? m.version() : "?";
+                    String status = runner.isRunning()
+                            ? AnsiCodes.colorize("RUNNING", AnsiCodes.GREEN)
+                            : AnsiCodes.colorize("STOPPED", AnsiCodes.RED);
+                    table.row(connLabel, runner.getScriptName(), version, status);
+                    connLabel = "";  // only show connection name on first row
+                }
+            }
+        }
+        ctx.out().print(table.build());
+        if (!hasScripts) {
+            ctx.out().println("No scripts loaded on any connection.");
+        }
     }
 }

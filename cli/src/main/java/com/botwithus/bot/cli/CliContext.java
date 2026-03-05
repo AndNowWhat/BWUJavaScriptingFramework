@@ -80,13 +80,18 @@ public class CliContext {
         }
     }
 
-    public void disconnect(String name) {
+    public void disconnect(String name, boolean force) {
         String target = name != null ? name : activeConnectionName;
         if (target == null || !connections.containsKey(target)) {
             out().println(target == null ? "No active connection." : "Connection not found: " + target);
             return;
         }
-        Connection conn = connections.remove(target);
+        Connection conn = connections.get(target);
+        if (conn.hasRunningScripts() && !force) {
+            out().println("Connection '" + target + "' has running scripts. Use 'disconnect --force' to stop them and disconnect.");
+            return;
+        }
+        connections.remove(target);
         conn.close();
         out().println("Disconnected from '" + target + "'.");
 
@@ -98,13 +103,29 @@ public class CliContext {
         }
     }
 
-    public void disconnectAll() {
-        for (Connection conn : connections.values()) {
+    public void disconnect(String name) {
+        disconnect(name, false);
+    }
+
+    public void disconnectAll(boolean force) {
+        var iter = connections.entrySet().iterator();
+        while (iter.hasNext()) {
+            Connection conn = iter.next().getValue();
+            if (conn.hasRunningScripts() && !force) {
+                out().println("Skipping '" + conn.getName() + "' — has running scripts. Use --force to override.");
+                continue;
+            }
             conn.close();
             out().println("Disconnected from '" + conn.getName() + "'.");
+            iter.remove();
         }
-        connections.clear();
-        activeConnectionName = null;
+        if (activeConnectionName != null && !connections.containsKey(activeConnectionName)) {
+            activeConnectionName = connections.isEmpty() ? null : connections.keySet().iterator().next();
+        }
+    }
+
+    public void disconnectAll() {
+        disconnectAll(false);
     }
 
     public boolean setActive(String name) {
@@ -115,6 +136,25 @@ public class CliContext {
 
     public List<BotScript> loadScripts() {
         return ScriptLoader.loadScripts();
+    }
+
+    /**
+     * Called when a connection error is detected (pipe closed, RPC failure, etc.).
+     * Removes the dead connection, stops its scripts, and switches to the next
+     * available connection (or clears the active view).
+     */
+    public void handleConnectionError(String connName) {
+        Connection conn = connections.remove(connName);
+        if (conn != null) {
+            conn.close();
+            out().println("Connection '" + connName + "' lost — removed.");
+        }
+        if (connName.equals(activeConnectionName)) {
+            activeConnectionName = connections.isEmpty() ? null : connections.keySet().iterator().next();
+            if (activeConnectionName != null) {
+                out().println("Active connection switched to '" + activeConnectionName + "'.");
+            }
+        }
     }
 
     public boolean hasConnections() { return !connections.isEmpty(); }

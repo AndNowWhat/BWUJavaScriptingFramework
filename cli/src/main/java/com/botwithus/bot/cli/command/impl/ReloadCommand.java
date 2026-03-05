@@ -37,9 +37,8 @@ public class ReloadCommand implements Command {
             ctx.out().println("Started " + scripts.size() + " script(s).");
         } else if (!scripts.isEmpty()) {
             for (BotScript script : scripts) {
-                runtime.startScript(script);
+                runtime.registerScript(script);
             }
-            runtime.stopAll();
             ctx.out().println("Scripts loaded but not started. Use 'scripts start <name>' or 'reload --start'.");
         }
     }
