@@ -21,7 +21,8 @@ tasks.named<JavaExec>("run") {
         classpath = files(classpath.files - apiJar)
         jvmArgs(
             "--module-path", apiJar.absolutePath,
-            "--add-modules", "com.botwithus.bot.api"
+            "--add-modules", "com.botwithus.bot.api",
+            "-XX:ErrorFile=${rootProject.projectDir}/hs_err_pid%p.log"
         )
     }
 }

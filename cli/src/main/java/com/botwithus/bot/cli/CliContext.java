@@ -1,9 +1,12 @@
 package com.botwithus.bot.cli;
 
 import com.botwithus.bot.api.BotScript;
+import com.botwithus.bot.api.blueprint.BlueprintGraph;
 import com.botwithus.bot.cli.log.LogBuffer;
 import com.botwithus.bot.cli.log.LogCapture;
 import com.botwithus.bot.cli.stream.StreamManager;
+import com.botwithus.bot.core.blueprint.execution.BlueprintBotScript;
+import com.botwithus.bot.core.blueprint.serialization.BlueprintSerializer;
 import com.botwithus.bot.core.impl.ClientImpl;
 import com.botwithus.bot.core.impl.ClientProviderImpl;
 import com.botwithus.bot.core.impl.EventBusImpl;
@@ -17,6 +20,8 @@ import com.botwithus.bot.core.runtime.ScriptRuntime;
 
 import java.awt.image.BufferedImage;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -161,6 +166,26 @@ public class CliContext {
 
     public List<BotScript> loadScripts() {
         return ScriptLoader.loadScripts();
+    }
+
+    /**
+     * Scans the {@code scripts/blueprints/} directory for {@code *.blueprint.json} files,
+     * deserializes each into a {@link BlueprintGraph}, and wraps them as {@link BlueprintBotScript} instances.
+     */
+    public List<BotScript> loadBlueprints() {
+        Path dir = Path.of("scripts", "blueprints");
+        if (!Files.isDirectory(dir)) return List.of();
+        try {
+            List<BlueprintGraph> graphs = BlueprintSerializer.loadAllFromDirectory(dir);
+            List<BotScript> scripts = new ArrayList<>();
+            for (BlueprintGraph graph : graphs) {
+                scripts.add(new BlueprintBotScript(graph));
+            }
+            return scripts;
+        } catch (Exception e) {
+            System.err.println("[CliContext] Failed to load blueprints: " + e.getMessage());
+            return List.of();
+        }
     }
 
     /**

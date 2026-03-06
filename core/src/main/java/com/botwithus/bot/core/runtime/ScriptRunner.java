@@ -3,6 +3,7 @@ package com.botwithus.bot.core.runtime;
 import com.botwithus.bot.api.BotScript;
 import com.botwithus.bot.api.ScriptContext;
 import com.botwithus.bot.api.ScriptManifest;
+import com.botwithus.bot.core.blueprint.execution.BlueprintBotScript;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -50,6 +51,9 @@ public class ScriptRunner implements Runnable {
     }
 
     public String getScriptName() {
+        if (script instanceof BlueprintBotScript bp) {
+            return bp.getMetadata().name();
+        }
         ScriptManifest manifest = getManifest();
         return manifest != null ? manifest.name() : script.getClass().getSimpleName();
     }
