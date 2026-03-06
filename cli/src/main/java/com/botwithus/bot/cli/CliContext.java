@@ -3,6 +3,9 @@ package com.botwithus.bot.cli;
 import com.botwithus.bot.api.BotScript;
 import com.botwithus.bot.cli.log.LogBuffer;
 import com.botwithus.bot.cli.log.LogCapture;
+import com.botwithus.bot.cli.stream.StreamManager;
+import com.botwithus.bot.core.impl.ClientImpl;
+import com.botwithus.bot.core.impl.ClientProviderImpl;
 import com.botwithus.bot.core.impl.EventBusImpl;
 import com.botwithus.bot.core.impl.GameAPIImpl;
 import com.botwithus.bot.core.impl.MessageBusImpl;
@@ -14,7 +17,9 @@ import com.botwithus.bot.core.runtime.ScriptRuntime;
 
 import java.awt.image.BufferedImage;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,16 +43,22 @@ public class CliContext {
 
     private final LogBuffer logBuffer;
     private final LogCapture logCapture;
+    private final ClientProviderImpl clientProvider = new ClientProviderImpl();
     private final Map<String, Connection> connections = new LinkedHashMap<>();
+    private final Map<String, ConnectionGroup> groups = new LinkedHashMap<>();
     private String activeConnectionName;
     private String mountedConnectionName;
     private ImageDisplay imageDisplay;
     private ProgressDisplay progressDisplay;
+    private StreamManager streamManager;
 
     public CliContext(LogBuffer logBuffer, LogCapture logCapture) {
         this.logBuffer = logBuffer;
         this.logCapture = logCapture;
     }
+
+    public void setStreamManager(StreamManager sm) { this.streamManager = sm; }
+    public StreamManager getStreamManager() { return streamManager; }
 
     public void connect(String pipeName) {
         String connName = pipeName != null ? pipeName : "BotWithUs";
@@ -62,7 +73,9 @@ public class CliContext {
             EventBusImpl eventBus = new EventBusImpl();
             MessageBusImpl messageBus = new MessageBusImpl();
             GameAPIImpl gameAPI = new GameAPIImpl(rpc);
-            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus, messageBus);
+            ClientImpl client = new ClientImpl(connName, gameAPI, eventBus, pipe::isOpen);
+            clientProvider.putClient(connName, client);
+            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus, messageBus, clientProvider);
 
             var dispatcher = new com.botwithus.bot.core.impl.EventDispatcher(eventBus);
             dispatcher.bindAutoSubscription(gameAPI);
@@ -99,6 +112,7 @@ public class CliContext {
             out().println("Auto-unmounted — mounted connection was disconnected.");
         }
         connections.remove(target);
+        clientProvider.removeClient(target);
         conn.close();
         out().println("Disconnected from '" + target + "'.");
 
@@ -115,6 +129,9 @@ public class CliContext {
     }
 
     public void disconnectAll(boolean force) {
+        if (streamManager != null) {
+            streamManager.stopAll(name -> connections.containsKey(name) ? connections.get(name) : null);
+        }
         var iter = connections.entrySet().iterator();
         while (iter.hasNext()) {
             Connection conn = iter.next().getValue();
@@ -123,6 +140,7 @@ public class CliContext {
                 continue;
             }
             conn.close();
+            clientProvider.removeClient(conn.getName());
             out().println("Disconnected from '" + conn.getName() + "'.");
             iter.remove();
         }
@@ -151,11 +169,15 @@ public class CliContext {
      * available connection (or clears the active view).
      */
     public void handleConnectionError(String connName) {
+        if (streamManager != null) {
+            streamManager.handleConnectionLost(connName);
+        }
         if (connName.equals(mountedConnectionName)) {
             unmount();
             out().println("Auto-unmounted — mounted connection was lost.");
         }
         Connection conn = connections.remove(connName);
+        clientProvider.removeClient(connName);
         if (conn != null) {
             conn.close();
             out().println("Connection '" + connName + "' lost — removed.");
@@ -188,6 +210,41 @@ public class CliContext {
 
     public void setProgressDisplay(ProgressDisplay d) { this.progressDisplay = d; }
     public ProgressDisplay getProgressDisplay() { return progressDisplay; }
+
+    // --- Connection Group management ---
+
+    public void createGroup(String name) {
+        groups.put(name, new ConnectionGroup(name));
+    }
+
+    public boolean deleteGroup(String name) {
+        return groups.remove(name) != null;
+    }
+
+    public ConnectionGroup getGroup(String name) {
+        return groups.get(name);
+    }
+
+    public Map<String, ConnectionGroup> getGroups() {
+        return Collections.unmodifiableMap(groups);
+    }
+
+    /**
+     * Returns the list of active (connected) Connection objects for a group.
+     * Connections that are in the group but not currently connected are skipped.
+     */
+    public List<Connection> getGroupConnections(String groupName) {
+        ConnectionGroup group = groups.get(groupName);
+        if (group == null) return List.of();
+        List<Connection> result = new ArrayList<>();
+        for (String connName : group.getConnectionNames()) {
+            Connection conn = connections.get(connName);
+            if (conn != null && conn.isAlive()) {
+                result.add(conn);
+            }
+        }
+        return result;
+    }
 
     public void mount(String connectionName) {
         this.mountedConnectionName = connectionName;

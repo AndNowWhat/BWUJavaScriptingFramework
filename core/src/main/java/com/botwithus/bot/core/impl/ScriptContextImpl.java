@@ -1,5 +1,6 @@
 package com.botwithus.bot.core.impl;
 
+import com.botwithus.bot.api.ClientProvider;
 import com.botwithus.bot.api.GameAPI;
 import com.botwithus.bot.api.ScriptContext;
 import com.botwithus.bot.api.event.EventBus;
@@ -10,11 +11,13 @@ public class ScriptContextImpl implements ScriptContext {
     private final GameAPI gameAPI;
     private final EventBus eventBus;
     private final MessageBus messageBus;
+    private final ClientProvider clientProvider;
 
-    public ScriptContextImpl(GameAPI gameAPI, EventBus eventBus, MessageBus messageBus) {
+    public ScriptContextImpl(GameAPI gameAPI, EventBus eventBus, MessageBus messageBus, ClientProvider clientProvider) {
         this.gameAPI = gameAPI;
         this.eventBus = eventBus;
         this.messageBus = messageBus;
+        this.clientProvider = clientProvider;
     }
 
     @Override
@@ -25,4 +28,7 @@ public class ScriptContextImpl implements ScriptContext {
 
     @Override
     public MessageBus getMessageBus() { return messageBus; }
+
+    @Override
+    public ClientProvider getClientProvider() { return clientProvider; }
 }

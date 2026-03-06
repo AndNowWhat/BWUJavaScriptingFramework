@@ -17,7 +17,7 @@ public class ScriptsCommand implements Command {
     @Override public String name() { return "scripts"; }
     @Override public List<String> aliases() { return List.of("s"); }
     @Override public String description() { return "Manage scripts on active connection"; }
-    @Override public String usage() { return "scripts [list|start <name>|stop <name>|restart <name>|info <name>|status]"; }
+    @Override public String usage() { return "scripts [list|start <name>|stop <name>|restart <name>|info <name>|status] [--group=<name>]"; }
 
     @Override
     public void execute(ParsedCommand parsed, CliContext ctx) {
@@ -26,6 +26,39 @@ public class ScriptsCommand implements Command {
         // 'status' works without an active connection — shows all connections
         if ("status".equals(sub)) {
             statusAll(ctx);
+            return;
+        }
+
+        String groupName = parsed.flag("group");
+
+        // Group-aware start/stop/restart
+        if (groupName != null && ("start".equals(sub) || "stop".equals(sub) || "restart".equals(sub))) {
+            String scriptName = parsed.arg(1);
+            if (scriptName == null) {
+                ctx.out().println("Usage: scripts " + sub + " <name> --group=<group>");
+                return;
+            }
+            List<Connection> conns = ctx.getGroupConnections(groupName);
+            if (conns.isEmpty()) {
+                ctx.out().println("No active connections in group '" + groupName + "'.");
+                // Warn about disconnected members
+                var group = ctx.getGroup(groupName);
+                if (group == null) {
+                    ctx.out().println("Group not found: " + groupName);
+                } else if (!group.getConnectionNames().isEmpty()) {
+                    ctx.out().println("All connections in the group are disconnected.");
+                }
+                return;
+            }
+            for (Connection conn : conns) {
+                ScriptRuntime runtime = conn.getRuntime();
+                switch (sub) {
+                    case "start" -> groupStart(scriptName, conn.getName(), runtime, ctx);
+                    case "stop" -> groupStop(scriptName, conn.getName(), runtime, ctx);
+                    case "restart" -> groupRestart(scriptName, conn.getName(), runtime, ctx);
+                }
+            }
+            warnDisconnected(groupName, conns, ctx);
             return;
         }
 
@@ -136,6 +169,52 @@ public class ScriptsCommand implements Command {
         ctx.out().println("  Status:      " + (runner.isRunning() ? "RUNNING" : "STOPPED"));
         ctx.out().println("  Class:       " + runner.getScript().getClass().getName());
         ctx.out().println("  Connection:  " + ctx.getActiveConnectionName());
+    }
+
+    private void groupStart(String name, String connName, ScriptRuntime runtime, CliContext ctx) {
+        ScriptRunner runner = runtime.findRunner(name);
+        if (runner == null) {
+            ctx.out().println("[" + connName + "] Script not found: " + name);
+            return;
+        }
+        if (runner.isRunning()) {
+            ctx.out().println("[" + connName + "] Already running: " + name);
+            return;
+        }
+        runner.start();
+        ctx.out().println("[" + connName + "] Started: " + runner.getScriptName());
+    }
+
+    private void groupStop(String name, String connName, ScriptRuntime runtime, CliContext ctx) {
+        if (runtime.stopScript(name)) {
+            ctx.out().println("[" + connName + "] Stopped: " + name);
+        } else {
+            ctx.out().println("[" + connName + "] Script not found or not running: " + name);
+        }
+    }
+
+    private void groupRestart(String name, String connName, ScriptRuntime runtime, CliContext ctx) {
+        ScriptRunner runner = runtime.findRunner(name);
+        if (runner == null) {
+            ctx.out().println("[" + connName + "] Script not found: " + name);
+            return;
+        }
+        if (runner.isRunning()) {
+            runner.stop();
+        }
+        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+        runner.start();
+        ctx.out().println("[" + connName + "] Restarted: " + runner.getScriptName());
+    }
+
+    private void warnDisconnected(String groupName, List<Connection> activeConns, CliContext ctx) {
+        var group = ctx.getGroup(groupName);
+        if (group == null) return;
+        for (String connName : group.getConnectionNames()) {
+            if (activeConns.stream().noneMatch(c -> c.getName().equals(connName))) {
+                ctx.out().println("[" + connName + "] " + AnsiCodes.colorize("Warning: disconnected, skipped.", AnsiCodes.YELLOW));
+            }
+        }
     }
 
     private void statusAll(CliContext ctx) {

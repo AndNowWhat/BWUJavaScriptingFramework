@@ -34,4 +34,11 @@ public interface ScriptContext {
      * @return the {@link MessageBus} instance
      */
     MessageBus getMessageBus();
+
+    /**
+     * Returns the client provider for accessing all connected game clients.
+     *
+     * @return the {@link ClientProvider} instance
+     */
+    ClientProvider getClientProvider();
 }

@@ -1,6 +1,8 @@
 package com.botwithus.bot.core;
 
 import com.botwithus.bot.api.BotScript;
+import com.botwithus.bot.core.impl.ClientImpl;
+import com.botwithus.bot.core.impl.ClientProviderImpl;
 import com.botwithus.bot.core.impl.EventBusImpl;
 import com.botwithus.bot.core.impl.EventDispatcher;
 import com.botwithus.bot.core.impl.GameAPIImpl;
@@ -25,7 +27,9 @@ public class JBotApplication {
             EventBusImpl eventBus = new EventBusImpl();
             MessageBusImpl messageBus = new MessageBusImpl();
             GameAPIImpl gameAPI = new GameAPIImpl(rpc);
-            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus, messageBus);
+            ClientProviderImpl clientProvider = new ClientProviderImpl();
+            clientProvider.putClient("BotWithUs", new ClientImpl("BotWithUs", gameAPI, eventBus, pipe::isOpen));
+            ScriptContextImpl context = new ScriptContextImpl(gameAPI, eventBus, messageBus, clientProvider);
 
             // Route pipe events to the typed event bus and enable auto-subscription
             EventDispatcher dispatcher = new EventDispatcher(eventBus);

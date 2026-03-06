@@ -9,6 +9,7 @@ import com.botwithus.bot.cli.command.impl.*;
 import com.botwithus.bot.cli.log.LogBuffer;
 import com.botwithus.bot.cli.log.LogCapture;
 import com.botwithus.bot.cli.output.AnsiCodes;
+import com.botwithus.bot.cli.stream.StreamManager;
 
 import javax.swing.*;
 import javax.swing.text.SimpleAttributeSet;
@@ -71,6 +72,7 @@ public class JBotGui extends JFrame {
 
         // CLI context and commands
         ctx = new CliContext(logBuffer, logCapture);
+        ctx.setStreamManager(new StreamManager(guiOut));
         registry = new CommandRegistry();
         registry.register(new HelpCommand(registry));
         registry.register(new ConnectCommand());
@@ -79,8 +81,10 @@ public class JBotGui extends JFrame {
         registry.register(new LogsCommand());
         registry.register(new ReloadCommand());
         registry.register(new ScreenshotCommand());
+        registry.register(new GroupCommand());
         registry.register(new MountCommand());
         registry.register(new UnmountCommand());
+        registry.register(new StreamCommand());
         registry.register(new ClearCommand());
         registry.register(new ExitCommand());
 
@@ -185,6 +189,14 @@ public class JBotGui extends JFrame {
     }
 
     private void shutdown() {
+        if (ctx.getStreamManager() != null) {
+            ctx.getStreamManager().stopAll(name -> {
+                for (var c : ctx.getConnections()) {
+                    if (c.getName().equals(name)) return c;
+                }
+                return null;
+            });
+        }
         ctx.disconnectAll();
         executor.shutdownNow();
         dispose();
