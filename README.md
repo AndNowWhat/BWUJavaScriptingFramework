@@ -114,7 +114,3 @@ BotScript → GameAPI → RpcClient → PipeClient → Game Server (named pipe)
 ```
 
 The pipe transport uses length-prefixed MessagePack frames over `\\.\pipe\BotWithUs`. The RPC client provides synchronous request/response semantics with async event dispatch.
-
-## License
-
-ISC
