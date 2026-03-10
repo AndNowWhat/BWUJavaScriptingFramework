@@ -162,10 +162,9 @@ public class ScriptsPanel implements GuiPanel {
                     }
                 }
 
-                // Config button — show for ConfigField-based or custom ImGui UI scripts
+                // Config button
                 var configFields = runner.getConfigFields();
-                boolean hasConfig = (configFields != null && !configFields.isEmpty()) || runner.hasCustomGui();
-                if (hasConfig) {
+                if (configFields != null && !configFields.isEmpty()) {
                     ImGui.sameLine();
                     if (ImGui.smallButton("Config")) {
                         ctx.openConfigPanel(runner);
