@@ -45,12 +45,12 @@ public class SceneObject extends EntityContext {
         return cachedType;
     }
 
-    /** The right-click interaction options for this object. */
+    /** The right-click interaction options for this object (transform-aware). */
     public List<String> getOptions() {
-        return getType().options();
+        return resolveTransform().options();
     }
 
-    /** Whether this object has a specific right-click option (case-insensitive). */
+    /** Whether this object has a specific right-click option (case-insensitive, transform-aware). */
     public boolean hasOption(String option) {
         return containsOption(getOptions(), option);
     }
