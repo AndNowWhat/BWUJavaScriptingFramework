@@ -54,12 +54,30 @@ public final class Backpack {
     }
 
     /**
+     * Checks if the backpack has at least one item.
+     *
+     * @return {@code true} if the backpack is not empty
+     */
+    public boolean isNotEmpty() {
+        return container.isNotEmpty();
+    }
+
+    /**
      * Checks if the backpack has no free slots.
      *
      * @return {@code true} if the backpack is full
      */
     public boolean isFull() {
         return container.isFull();
+    }
+
+    /**
+     * Checks if the backpack has at least one free slot.
+     *
+     * @return {@code true} if the backpack is not full
+     */
+    public boolean isNotFull() {
+        return container.isNotFull();
     }
 
     /**
@@ -84,6 +102,16 @@ public final class Backpack {
     }
 
     /**
+     * Checks if the backpack contains an item whose name contains the given string (case-insensitive).
+     *
+     * @param name the name substring to search for
+     * @return {@code true} if a matching item is present
+     */
+    public boolean contains(String name) {
+        return container.contains(name);
+    }
+
+    /**
      * Counts the total quantity of an item across all backpack slots.
      *
      * @param itemId the item ID to count
@@ -91,6 +119,16 @@ public final class Backpack {
      */
     public int count(int itemId) {
         return container.count(itemId);
+    }
+
+    /**
+     * Counts the total quantity of items whose name contains the given string (case-insensitive).
+     *
+     * @param name the name substring to search for
+     * @return the total quantity of matching items
+     */
+    public int count(String name) {
+        return container.count(name);
     }
 
     /**
@@ -113,12 +151,30 @@ public final class Backpack {
     }
 
     /**
+     * Returns the number of occupied (non-empty) slots in the backpack.
+     *
+     * @return the occupied slot count
+     */
+    public int occupiedSlots() {
+        return container.occupiedSlots();
+    }
+
+    /**
      * Returns the number of empty slots in the backpack.
      *
      * @return the free slot count
      */
     public int freeSlots() {
         return container.freeSlots();
+    }
+
+    /**
+     * Returns all items including empty slots.
+     *
+     * @return a list of all inventory slots
+     */
+    public List<InventoryItem> getAllSlots() {
+        return container.getAllSlots();
     }
 
     // ========================== Interaction Methods ==========================

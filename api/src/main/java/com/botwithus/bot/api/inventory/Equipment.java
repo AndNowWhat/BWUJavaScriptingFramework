@@ -60,6 +60,45 @@ public final class Equipment {
     }
 
     /**
+     * Checks if an item whose name contains the given string is currently equipped (case-insensitive).
+     *
+     * @param name the name substring to search for
+     * @return {@code true} if a matching item is equipped
+     */
+    public boolean contains(String name) {
+        return container.contains(name);
+    }
+
+    /**
+     * Checks if no items are currently equipped.
+     *
+     * @return {@code true} if no items are equipped
+     */
+    public boolean isEmpty() {
+        return container.isEmpty();
+    }
+
+    /**
+     * Counts the total quantity of an item across all equipment slots.
+     *
+     * @param itemId the item ID to count
+     * @return the total quantity
+     */
+    public int count(int itemId) {
+        return container.count(itemId);
+    }
+
+    /**
+     * Counts the total quantity of items whose name contains the given string (case-insensitive).
+     *
+     * @param name the name substring to search for
+     * @return the total quantity of matching items
+     */
+    public int count(String name) {
+        return container.count(name);
+    }
+
+    /**
      * Returns all currently equipped items.
      *
      * @return a list of equipped inventory items

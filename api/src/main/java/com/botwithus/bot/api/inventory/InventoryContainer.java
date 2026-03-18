@@ -88,6 +88,15 @@ public class InventoryContainer {
     }
 
     /**
+     * Checks if the inventory has at least one free slot.
+     *
+     * @return {@code true} if the inventory is not full
+     */
+    public boolean isNotFull() {
+        return !isFull();
+    }
+
+    /**
      * Check if the inventory contains an item with the given ID.
      */
     public boolean contains(int itemId) {
@@ -137,6 +146,81 @@ public class InventoryContainer {
      */
     public int occupiedSlots() {
         return getItems().size();
+    }
+
+    /**
+     * Check if the inventory contains an item whose name contains the given string (case-insensitive).
+     * Uses {@link com.botwithus.bot.api.GameAPI#getItemType} to resolve item names.
+     *
+     * @param name the name substring to search for
+     * @return {@code true} if a matching item is found
+     */
+    public boolean contains(String name) {
+        String lowerName = name.toLowerCase();
+        return getItems().stream().anyMatch(item -> matchesName(item, lowerName));
+    }
+
+    /**
+     * Count the total quantity of items whose name contains the given string (case-insensitive).
+     *
+     * @param name the name substring to search for
+     * @return the total quantity of matching items
+     */
+    public int count(String name) {
+        String lowerName = name.toLowerCase();
+        return getItems().stream()
+                .filter(item -> matchesName(item, lowerName))
+                .mapToInt(InventoryItem::quantity)
+                .sum();
+    }
+
+    /**
+     * Returns the first item matching the given ID, or {@code null} if not found.
+     *
+     * @param itemId the item ID to find
+     * @return the matching item, or {@code null}
+     */
+    public InventoryItem getFirst(int itemId) {
+        List<InventoryItem> items = api.queryInventoryItems(InventoryFilter.builder()
+                .inventoryId(id)
+                .itemId(itemId)
+                .nonEmpty(true)
+                .maxResults(1)
+                .build());
+        return items.isEmpty() ? null : items.getFirst();
+    }
+
+    /**
+     * Returns the first item whose name contains the given string (case-insensitive),
+     * or {@code null} if not found.
+     *
+     * @param name the name substring to search for
+     * @return the matching item, or {@code null}
+     */
+    public InventoryItem getFirst(String name) {
+        String lowerName = name.toLowerCase();
+        return getItems().stream()
+                .filter(item -> matchesName(item, lowerName))
+                .findFirst().orElse(null);
+    }
+
+    /**
+     * Returns all items whose name contains the given string (case-insensitive).
+     *
+     * @param name the name substring to search for
+     * @return list of matching items
+     */
+    public List<InventoryItem> getAll(String name) {
+        String lowerName = name.toLowerCase();
+        return getItems().stream()
+                .filter(item -> matchesName(item, lowerName))
+                .toList();
+    }
+
+    private boolean matchesName(InventoryItem item, String lowerName) {
+        var type = api.getItemType(item.itemId());
+        return type != null && type.name() != null
+                && type.name().toLowerCase().contains(lowerName);
     }
 
     /**
